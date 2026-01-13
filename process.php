@@ -7,6 +7,10 @@ ini_set('log_errors', 1);
 // Set header JSON ngay từ đầu
 header('Content-Type: application/json; charset=utf-8');
 
+// Tăng thời gian thực thi và bộ nhớ
+set_time_limit(90); // Tăng thêm 30 giây
+ini_set('memory_limit', '512M'); // Tăng bộ nhớ
+
 // Bắt mọi lỗi PHP
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
@@ -119,78 +123,238 @@ try {
     
     // Tạo tên file mới
     $timestamp = date('YmdHis');
-    $filename = 'HopDong_' . preg_replace('/[^a-zA-Z0-9]/', '', $ho_ten) . '_' . $timestamp;
+    $cleanName = preg_replace('/[^a-zA-Z0-9_\x{00C0}-\x{1EF9}\s]/u', '', $ho_ten);
+    $cleanName = str_replace(' ', '_', $cleanName);
+    $filename = 'HopDong_' . $cleanName . '_' . $timestamp;
     
-    // Nếu preview = 0 (không xem trước), tạo PDF để in
-    if ($preview == '0') {
-        // Tạo file DOCX tạm
-        $tempDocxPath = $dataDir . '/' . $filename . '_temp.docx';
-        $templateProcessor->saveAs($tempDocxPath);
+    // Tạo file Word
+    $docxFilename = $filename . '.docx';
+    $docxPath = $dataDir . '/' . $docxFilename;
+    $templateProcessor->saveAs($docxPath);
+    
+    // Kiểm tra file Word đã tạo
+    if (!file_exists($docxPath)) {
+        throw new Exception('Không thể tạo file hợp đồng Word. Vui lòng kiểm tra quyền ghi trên server');
+    }
+    
+    // Khởi tạo biến PDF
+    $pdfFilename = $filename . '.pdf';
+    $pdfPath = $dataDir . '/' . $pdfFilename;
+    $pdfCreated = false;
+    
+    // Hàm chuyển đổi DOCX sang PDF bằng LibreOffice
+    function convertDocxToPDF($docxPath, $pdfPath) {
+        // Kiểm tra xem LibreOffice có sẵn không
+        $libreofficePath = '';
         
-        // Chuyển đổi sang PDF
-        $pdfFilename = $filename . '.pdf';
-        $pdfPath = $dataDir . '/' . $pdfFilename;
+        // Thử tìm LibreOffice ở các vị trí thông thường
+        $possiblePaths = [
+            'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+            'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
+            'soffice.exe',
+            'soffice',
+            'libreoffice',
+            '/usr/bin/libreoffice',
+            '/usr/local/bin/libreoffice',
+            '/snap/bin/libreoffice'
+        ];
         
-        // Sử dụng PhpWord để convert sang PDF (cần cài đặt thêm: composer require dompdf/dompdf)
-        try {
-            $phpWord = \PhpOffice\PhpWord\IOFactory::load($tempDocxPath);
-            $pdfWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'PDF');
-            $pdfWriter->save($pdfPath);
-            
-            // Xóa file DOCX tạm
-            if (file_exists($tempDocxPath)) {
-                unlink($tempDocxPath);
+        $isWindows = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN');
+        
+        foreach ($possiblePaths as $path) {
+            // Kiểm tra nếu file tồn tại
+            if (file_exists($path)) {
+                // Thử lệnh thông thường
+                $command = '"' . $path . '" --version 2>&1';
+                exec($command, $output, $returnCode);
+                
+                if ($returnCode === 0) {
+                    $libreofficePath = $path;
+                    break;
+                }
+                
+                // Trên Windows, thử với & (cho PowerShell)
+                if ($isWindows) {
+                    $commandWithAmpersand = '&"' . $path . '" --version 2>&1';
+                    exec($commandWithAmpersand, $output2, $returnCode2);
+                    
+                    if ($returnCode2 === 0) {
+                        $libreofficePath = $path;
+                        break;
+                    }
+                }
             }
+        }
+        
+        if (empty($libreofficePath)) {
+            throw new Exception('Không tìm thấy LibreOffice. Vui lòng cài đặt LibreOffice để chuyển đổi sang PDF.');
+        }
+        
+        // Tạo output directory và input file paths
+        $outputDir = dirname($pdfPath);
+        $inputFile = $docxPath;
+        
+        // Thử nhiều cách để chạy LibreOffice
+        $commands = [];
+        
+        // Cách 1: Thông thường (dùng cho cả Windows và Linux)
+        $commands[] = sprintf(
+            '"%s" --headless --convert-to pdf --outdir "%s" "%s" 2>&1',
+            $libreofficePath,
+            $outputDir,
+            $inputFile
+        );
+        
+        // Cách 2: Với & (cho PowerShell) - chỉ trên Windows
+        if ($isWindows) {
+            $commands[] = sprintf(
+                '&"%s" --headless --convert-to pdf --outdir "%s" "%s" 2>&1',
+                $libreofficePath,
+                $outputDir,
+                $inputFile
+            );
+        }
+        
+        // Cách 3: Sử dụng cd đến thư mục chứa LibreOffice (cho Windows)
+        if ($isWindows) {
+            $libreofficeDir = dirname($libreofficePath);
+            $commands[] = sprintf(
+                'cd "%s" && soffice.exe --headless --convert-to pdf --outdir "%s" "%s" 2>&1',
+                $libreofficeDir,
+                $outputDir,
+                $inputFile
+            );
+        }
+        
+        $success = false;
+        $lastError = '';
+        
+        foreach ($commands as $command) {
+            exec($command, $output, $returnCode);
             
-            // Trả về thông tin file PDF
-            echo json_encode([
+            if ($returnCode === 0) {
+                $success = true;
+                break;
+            } else {
+                $lastError = 'Return code: ' . $returnCode . '. Output: ' . implode(' ', $output);
+            }
+        }
+        
+        if (!$success) {
+            throw new Exception('LibreOffice chuyển đổi thất bại. ' . $lastError);
+        }
+        
+        // Kiểm tra file PDF đã được tạo chưa
+        $pdfDir = dirname($pdfPath);
+        $pdfNameWithoutExt = pathinfo($pdfPath, PATHINFO_FILENAME);
+        
+        // LibreOffice có thể tạo file với tên hơi khác, tìm file PDF mới nhất
+        $pdfFiles = glob($pdfDir . '/*.pdf');
+        $latestPdf = '';
+        $latestTime = 0;
+        
+        foreach ($pdfFiles as $pdfFile) {
+            $fileTime = filemtime($pdfFile);
+            if ($fileTime > $latestTime) {
+                $latestTime = $fileTime;
+                $latestPdf = $pdfFile;
+            }
+        }
+        
+        $expectedPdfName = basename($pdfPath);
+        if (!empty($latestPdf) && (
+            basename($latestPdf) === $expectedPdfName ||
+            strpos(basename($latestPdf), $pdfNameWithoutExt) !== false
+        )) {
+            if (basename($latestPdf) !== $expectedPdfName) {
+                rename($latestPdf, $pdfPath);
+            }
+            return $pdfPath;
+        }
+        
+        throw new Exception('File PDF không được tạo sau khi chuyển đổi.');
+    }
+    
+    // Thử chuyển đổi sang PDF
+    try {
+        $pdfPath = convertDocxToPDF($docxPath, $pdfPath);
+        $pdfCreated = true;
+    } catch (Exception $e) {
+        // Ghi log lỗi nhưng không dừng chương trình
+        error_log('LibreOffice conversion error: ' . $e->getMessage());
+        $pdfCreated = false;
+        
+        // Tạo file PDF bằng cách khác (sử dụng PHPWord nếu có dompdf)
+        try {
+            if (class_exists('\\PhpOffice\\PhpWord\\IOFactory')) {
+                $phpWord = \PhpOffice\PhpWord\IOFactory::load($docxPath);
+                if (class_exists('\\PhpOffice\\PhpWord\\Writer\\PDF')) {
+                    $pdfWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'PDF');
+                    $pdfWriter->save($pdfPath);
+                    $pdfCreated = true;
+                }
+            }
+        } catch (Exception $pdfException) {
+            // Không thể tạo PDF bằng bất kỳ phương pháp nào
+            $pdfCreated = false;
+        }
+    }
+    
+    // Chuẩn bị response dựa trên lựa chọn preview
+    if ($preview == '0') {
+        // Chế độ in - ưu tiên PDF
+        if ($pdfCreated && file_exists($pdfPath)) {
+            $response = [
                 'success' => true,
-                'message' => 'Tạo hợp đồng thành công',
+                'message' => 'Tạo hợp đồng thành công. File PDF đã sẵn sàng để in.',
                 'filename' => $pdfFilename,
+                'filename_pdf' => $pdfFilename,
+                'filename_docx' => $docxFilename,
                 'file_url' => 'data/' . $pdfFilename,
+                'file_url_pdf' => 'data/' . $pdfFilename,
+                'file_url_docx' => 'data/' . $docxFilename,
                 'timestamp' => $timestamp,
                 'type' => 'pdf',
-                'action' => 'print'
-            ], JSON_UNESCAPED_UNICODE);
-            
-        } catch (Exception $e) {
-            // Nếu không thể convert sang PDF, vẫn trả về DOCX
-            if (file_exists($tempDocxPath)) {
-                rename($tempDocxPath, $dataDir . '/' . $filename . '.docx');
-            }
-            
-            echo json_encode([
+                'action' => 'print',
+                'pdf_created' => $pdfCreated
+            ];
+        } else {
+            // Nếu không có PDF, trả về DOCX
+            $response = [
                 'success' => true,
-                'message' => 'Không thể tạo PDF, đã tạo file DOCX',
-                'filename' => $filename . '.docx',
-                'file_url' => 'data/' . $filename . '.docx',
+                'message' => 'Tạo hợp đồng thành công. Không thể tạo PDF, sử dụng file Word để in.',
+                'filename' => $docxFilename,
+                'filename_pdf' => null,
+                'filename_docx' => $docxFilename,
+                'file_url' => 'data/' . $docxFilename,
+                'file_url_pdf' => null,
+                'file_url_docx' => 'data/' . $docxFilename,
                 'timestamp' => $timestamp,
                 'type' => 'docx',
-                'action' => 'download',
-                'warning' => 'Không hỗ trợ chuyển đổi PDF. Cài đặt: composer require dompdf/dompdf'
-            ], JSON_UNESCAPED_UNICODE);
+                'action' => 'print',
+                'pdf_created' => false
+            ];
         }
-        
     } else {
-        // Preview = 1, tạo file DOCX để tải về
-        $docxFilename = $filename . '.docx';
-        $outputPath = $dataDir . '/' . $docxFilename;
-        $templateProcessor->saveAs($outputPath);
-        
-        if (!file_exists($outputPath)) {
-            throw new Exception('Không thể tạo file hợp đồng. Vui lòng kiểm tra quyền ghi trên server');
-        }
-        
-        echo json_encode([
+        // Chế độ xem trước - trả về cả 2 file
+        $response = [
             'success' => true,
-            'message' => 'Tạo hợp đồng thành công',
+            'message' => 'Tạo hợp đồng thành công.',
             'filename' => $docxFilename,
+            'filename_pdf' => $pdfCreated ? $pdfFilename : null,
+            'filename_docx' => $docxFilename,
             'file_url' => 'data/' . $docxFilename,
+            'file_url_pdf' => $pdfCreated ? 'data/' . $pdfFilename : null,
+            'file_url_docx' => 'data/' . $docxFilename,
             'timestamp' => $timestamp,
             'type' => 'docx',
-            'action' => 'download'
-        ], JSON_UNESCAPED_UNICODE);
+            'action' => 'download',
+            'pdf_created' => $pdfCreated
+        ];
     }
+    
+    // Trả về response JSON
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
     
 } catch (Exception $e) {
     http_response_code(500);

@@ -1,199 +1,281 @@
-// Hàm chuyển số thành chữ tiếng Việt
-function numberToVietnameseWords(num) {
-    if (num == 0) return "Không đồng";
-    
-    const ones = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
-    const teens = ["mười", "mười một", "mười hai", "mười ba", "mười bốn", "mười lăm", 
-                   "mười sáu", "mười bảy", "mười tám", "mười chín"];
-    const tens = ["", "", "hai mươi", "ba mươi", "bốn mươi", "năm mươi", 
-                  "sáu mươi", "bảy mươi", "tám mươi", "chín mươi"];
-    const scales = ["", "nghìn", "triệu", "tỷ"];
-    
-    function convertThreeDigits(n) {
-        let result = "";
-        const hundred = Math.floor(n / 100);
-        const remainder = n % 100;
-        const ten = Math.floor(remainder / 10);
-        const one = remainder % 10;
+document.addEventListener('DOMContentLoaded', function() {
+    // Hàm hiển thị loading
+    function showLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        const progressBar = document.getElementById('loadingProgress');
+        const printBtn = document.getElementById('printBtn');
         
-        if (hundred > 0) {
-            result += ones[hundred] + " trăm";
-            if (remainder > 0) result += " ";
+        // Hiển thị overlay
+        overlay.style.display = 'flex';
+        
+        // Đặt trạng thái loading cho nút
+        printBtn.disabled = true;
+        printBtn.classList.add('btn-loading');
+        
+        // Tăng progress bar
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += 10;
+                progressBar.style.width = progress + '%';
+            }
+        }, 500);
+        
+        // Lưu interval để xóa sau
+        overlay.dataset.progressInterval = progressInterval;
+    }
+    
+    // Hàm ẩn loading
+    function hideLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        const progressBar = document.getElementById('loadingProgress');
+        const printBtn = document.getElementById('printBtn');
+        
+        // Hoàn thành progress bar
+        progressBar.style.width = '100%';
+        
+        // Xóa interval
+        if (overlay.dataset.progressInterval) {
+            clearInterval(overlay.dataset.progressInterval);
         }
         
-        if (remainder >= 10 && remainder < 20) {
-            result += teens[remainder - 10];
-        } else {
-            if (ten > 0) {
-                result += tens[ten];
-                if (one > 0) result += " ";
-            } else if (hundred > 0 && one > 0) {
-                result += "linh ";
+        // Ẩn overlay sau 0.5 giây
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            progressBar.style.width = '0%';
+            
+            // Khôi phục nút
+            printBtn.disabled = false;
+            printBtn.classList.remove('btn-loading');
+        }, 500);
+    }
+    
+    // Hàm hiển thị thông báo
+    function showMessage(message, type = 'success') {
+        const messageDiv = document.getElementById('resultMessage');
+        messageDiv.style.display = 'block';
+        messageDiv.className = 'alert alert-' + (type === 'success' ? 'success' : 'danger');
+        messageDiv.innerHTML = message;
+        
+        // Tự động ẩn sau 5 giây
+        setTimeout(() => {
+            messageDiv.style.display = 'none';
+        }, 5000);
+    }
+    
+    // Hàm chuyển đổi số thành chữ
+    function numberToWords(num) {
+        const ones = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+        const tens = ['', '', 'hai mươi', 'ba mươi', 'bốn mươi', 'năm mươi', 'sáu mươi', 'bảy mươi', 'tám mươi', 'chín mươi'];
+        const teens = ['mười', 'mười một', 'mười hai', 'mười ba', 'mười bốn', 'mười lăm', 'mười sáu', 'mười bảy', 'mười tám', 'mười chín'];
+        
+        function convertLessThanOneThousand(n) {
+            if (n == 0) return '';
+            
+            let result = '';
+            
+            if (n >= 100) {
+                result += ones[Math.floor(n / 100)] + ' trăm ';
+                n %= 100;
             }
             
-            if (one > 0) {
-                if (ten > 1 && one == 1) {
-                    result += "mốt";
-                } else if (ten > 0 && one == 5) {
-                    result += "lăm";
+            if (n >= 20) {
+                result += tens[Math.floor(n / 10)] + ' ';
+                n %= 10;
+            } else if (n >= 10) {
+                result += teens[n - 10] + ' ';
+                return result;
+            }
+            
+            if (n > 0) {
+                if (n == 5) {
+                    result += 'lăm ';
                 } else {
-                    result += ones[one];
+                    result += ones[n] + ' ';
                 }
             }
+            
+            return result;
         }
         
-        return result.trim();
-    }
-    
-    let result = "";
-    let scaleIndex = 0;
-    
-    while (num > 0) {
-        const threeDigits = num % 1000;
-        if (threeDigits > 0) {
-            const converted = convertThreeDigits(threeDigits);
-            if (scaleIndex > 0) {
-                result = converted + " " + scales[scaleIndex] + " " + result;
-            } else {
-                result = converted;
-            }
+        if (num == 0) return 'không';
+        
+        let result = '';
+        const billion = Math.floor(num / 1000000000);
+        const million = Math.floor((num % 1000000000) / 1000000);
+        const thousand = Math.floor((num % 1000000) / 1000);
+        const remainder = num % 1000;
+        
+        if (billion > 0) {
+            result += convertLessThanOneThousand(billion) + 'tỷ ';
         }
-        num = Math.floor(num / 1000);
-        scaleIndex++;
+        
+        if (million > 0) {
+            result += convertLessThanOneThousand(million) + 'triệu ';
+        }
+        
+        if (thousand > 0) {
+            result += convertLessThanOneThousand(thousand) + 'nghìn ';
+        }
+        
+        result += convertLessThanOneThousand(remainder);
+        
+        return result.trim() + ' đồng';
     }
     
-    result = result.trim();
-    result = result.charAt(0).toUpperCase() + result.slice(1);
-    return result + " đồng";
-}
-
-// Tự động chuyển đổi số tiền sang chữ
-document.getElementById('so_tien').addEventListener('input', function(e) {
-    const soTien = this.value.replace(/\D/g, '');
-    if (soTien) {
-        const bangChu = numberToVietnameseWords(parseInt(soTien));
+    // Xử lý thay đổi số tiền
+    document.getElementById('so_tien').addEventListener('input', function() {
+        const soTien = parseInt(this.value.replace(/\D/g, '')) || 0;
+        const bangChu = numberToWords(soTien);
         document.getElementById('bang_chu').value = bangChu;
-    } else {
-        document.getElementById('bang_chu').value = '';
-    }
-});
-
-// Hàm mở file để in (tự động)
-function openFileForPrint(fileUrl, filename) {
-    // Tạo link tải file
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.download = filename;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Hiển thị hướng dẫn cho người dùng
-    setTimeout(() => {
-        alert('File đã được tải về!\n\nVui lòng:\n1. Mở file vừa tải\n2. Nhấn Ctrl+P (hoặc Cmd+P trên Mac) để in');
-    }, 500);
-}
-
-// Xử lý nút in hợp đồng
-document.getElementById('printBtn').addEventListener('click', function(e) {
-    e.preventDefault();
-    
-    const form = document.getElementById('contractForm');
-    
-    // Kiểm tra validation
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-    
-    // Lấy dữ liệu từ form
-    const formData = new FormData(form);
-    
-    // Kiểm tra checkbox xem trước
-    const previewCheck = document.getElementById('previewCheck').checked;
-    formData.append('preview', previewCheck ? '1' : '0');
-    
-    // Hiển thị loading
-    const btnPrint = document.getElementById('printBtn');
-    const originalText = btnPrint.textContent;
-    btnPrint.disabled = true;
-    btnPrint.textContent = previewCheck ? 'Đang tạo file...' : 'Đang tạo file để in...';
-    
-    // Gửi dữ liệu đến server
-    const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-    const processUrl = baseUrl + 'process.php';
-    console.log('Sending request to:', processUrl);
-    
-    fetch(processUrl, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            return response.text().then(text => {
-                console.error('Response không phải JSON:', text);
-                throw new Error('Server trả về HTML thay vì JSON. Kiểm tra file process.php có lỗi.');
-            });
+        
+        // Format số tiền với dấu chấm
+        if (soTien > 0) {
+            this.value = soTien.toLocaleString('vi-VN');
         }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            if (data.action === 'print') {
-                // Tải file và hướng dẫn in
-                openFileForPrint(data.file_url, data.filename);
-            } else {
-                // Tải file về bình thường
-                const link = document.createElement('a');
-                link.href = data.file_url;
-                link.download = data.filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                alert('File hợp đồng đã được tải về!');
-            }
-        } else {
-            let errorMsg = 'Lỗi: ' + data.message;
-            if (data.file && data.line) {
-                errorMsg += '\nFile: ' + data.file + ' (Line: ' + data.line + ')';
-            }
-            alert(errorMsg);
-            console.error('Error details:', data);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Có lỗi xảy ra khi tạo hợp đồng: ' + error.message);
-    })
-    .finally(() => {
-        btnPrint.disabled = false;
-        btnPrint.textContent = originalText;
     });
-});
-
-// Format số điện thoại khi nhập
-document.getElementById('so_dt').addEventListener('input', function(e) {
-    this.value = this.value.replace(/[^\d]/g, '');
-});
-
-// Format CCCD khi nhập
-document.getElementById('cccd_so').addEventListener('input', function(e) {
-    this.value = this.value.replace(/[^\d]/g, '');
-});
-
-// Format giờ và phút
-document.getElementById('gio').addEventListener('input', function(e) {
-    let value = this.value.replace(/[^\d]/g, '');
-    if (value.length > 2) value = value.slice(0, 2);
-    if (parseInt(value) > 23) value = '23';
-    this.value = value;
-});
-
-document.getElementById('phut').addEventListener('input', function(e) {
-    let value = this.value.replace(/[^\d]/g, '');
-    if (value.length > 2) value = value.slice(0, 2);
-    if (parseInt(value) > 59) value = '59';
-    this.value = value;
+    
+    // Đặt ngày hiện tại cho các trường ngày
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('ngay_cap').value = today;
+    document.getElementById('ngay_cam').value = today;
+    document.getElementById('ky_1').value = today;
+    document.getElementById('ky_2').value = today;
+    
+    // Đặt giờ phút hiện tại
+    const now = new Date();
+    document.getElementById('gio').value = now.getHours().toString().padStart(2, '0');
+    document.getElementById('phut').value = now.getMinutes().toString().padStart(2, '0');
+    
+    // Xử lý nút in hợp đồng
+    document.getElementById('printBtn').addEventListener('click', function() {
+        // Validate form
+        const requiredFields = [
+            'ho_ten', 'nam_sinh', 'so_dt', 'cccd_so', 
+            'ngay_cap', 'noi_cap', 'noi_dktt', 
+            'ten_tai_san', 'so_tien', 'gio', 'phut', 'ngay_cam'
+        ];
+        
+        let isValid = true;
+        let firstInvalidField = null;
+        
+        requiredFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (!field.value.trim()) {
+                isValid = false;
+                if (!firstInvalidField) {
+                    firstInvalidField = field;
+                }
+                field.classList.add('is-invalid');
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+        
+        if (!isValid) {
+            alert('Vui lòng điền đầy đủ các trường bắt buộc!');
+            if (firstInvalidField) {
+                firstInvalidField.focus();
+            }
+            return;
+        }
+        
+        // Hiển thị loading
+        showLoading();
+        
+        // Tạo dữ liệu form
+        const formData = new FormData();
+        const formFields = [
+            'ho_ten', 'nam_sinh', 'so_dt', 'cccd_so', 'ngay_cap', 
+            'noi_cap', 'noi_dktt', 'ten_tai_san', 'so_tien', 
+            'bang_chu', 'gio', 'phut', 'ngay_cam', 'ky_1', 'ky_2'
+        ];
+        
+        formFields.forEach(field => {
+            const element = document.getElementById(field);
+            if (element) {
+                // Format số tiền: bỏ dấu chấm trước khi gửi
+                if (field === 'so_tien') {
+                    const rawValue = element.value.replace(/\./g, '');
+                    formData.append(field, rawValue);
+                } else {
+                    formData.append(field, element.value);
+                }
+            }
+        });
+        
+        // Thêm preview option
+        const preview = document.getElementById('previewCheck').checked ? '1' : '0';
+        formData.append('preview', preview);
+        
+        // Gửi request đến server
+        fetch('process.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            hideLoading();
+            
+            if (data.success) {
+                if (preview === '1') {
+                    // Chế độ xem trước
+                    if (data.file_url) {
+                        window.open(data.file_url, '_blank');
+                    }
+                    if (data.file_url_pdf) {
+                        setTimeout(() => {
+                            window.open(data.file_url_pdf, '_blank');
+                        }, 500);
+                    }
+                    showMessage('✅ Tạo hợp đồng thành công! Đang mở file xem trước...', 'success');
+                } else {
+                    // Chế độ in - tự động tải file
+                    const downloadUrl = data.file_url_pdf || data.file_url;
+                    const filename = data.filename_pdf || data.filename;
+                    
+                    if (downloadUrl) {
+                        const link = document.createElement('a');
+                        link.href = downloadUrl;
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        showMessage('✅ Tạo hợp đồng thành công! File đang được tải xuống.', 'success');
+                    }
+                }
+            } else {
+                showMessage('❌ Lỗi: ' + data.message, 'error');
+                console.error('Server error:', data);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            showMessage('❌ Lỗi kết nối: ' + error.message, 'error');
+            console.error('Fetch error:', error);
+        });
+    });
+    
+    // Thêm style cho invalid fields
+    const style = document.createElement('style');
+    style.textContent = `
+        .is-invalid {
+            border-color: #dc3545 !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right calc(0.375em + 0.1875rem) center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+        }
+        
+        .is-invalid:focus {
+            box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+        }
+    `;
+    document.head.appendChild(style);
 });

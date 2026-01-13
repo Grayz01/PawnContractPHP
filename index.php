@@ -6,8 +6,98 @@
     <title>Hợp Đồng Cầm Cố Tài Sản - Bản quyền: Vmtech - 0944947411</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .loading-content {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .loading-subtext {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        /* Button with loading state */
+        .btn-loading {
+            position: relative;
+            color: transparent !important;
+        }
+        
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+    </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">ĐANG XỬ LÝ...</div>
+            <div class="loading-subtext">Vui lòng chờ trong giây lát</div>
+            <div class="loading-progress mt-3">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" 
+                         style="width: 0%" 
+                         id="loadingProgress"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container-fluid">
         <div class="form-container">
             <h2 class="text-center mb-4 form-title">HỢP ĐỒNG CẦM CỐ TÀI SẢN</h2>
@@ -112,25 +202,6 @@
                     </div>
                 </div>
 
-                <!-- <div class="row mb-4">
-                    <div class="col-sm-6">
-                        <div class="row">
-                            <label class="col-sm-4 col-form-label fw-bold">Kỳ 3</label>
-                            <div class="col-sm-8">
-                                <input type="date" class="form-control" name="ky_3" id="ky_3">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-6">
-                        <div class="row">
-                            <label class="col-sm-4 col-form-label fw-bold">Kỳ 4</label>
-                            <div class="col-sm-8">
-                                <input type="date" class="form-control" name="ky_4" id="ky_4">
-                            </div>
-                        </div>
-                    </div>
-                </div> -->
-
                 <!-- Checkbox và nút xem trước -->
                 <div class="row mb-3">
                     <div class="col-sm-6">
@@ -145,6 +216,9 @@
 
                 <div class="text-center">
                     <button type="button" class="btn btn-primary btn-lg" id="printBtn">IN HỢP ĐỒNG</button>
+                    <div class="mt-3">
+                        <div id="resultMessage" style="display: none;"></div>
+                    </div>
                 </div>
             </form>
         </div>
