@@ -78,6 +78,78 @@
             border-top-color: transparent;
             animation: spin 1s linear infinite;
         }
+
+        /* Printer selection */
+        .printer-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .printer-section-title {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .printer-info {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+            margin-top: 5px;
+        }
+
+        /* Print Options */
+        .print-options {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+        }
+
+        .option-label {
+            font-weight: normal;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+
+        /* Modal */
+        .print-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .print-modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .print-modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .print-actions {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -98,9 +170,75 @@
         </div>
     </div>
 
+    <!-- Print Options Modal -->
+    <div class="print-modal" id="printModal">
+        <div class="print-modal-content">
+            <div class="print-modal-title">TÙY CHỌN IN</div>
+            
+            <div class="mb-3">
+                <label for="printCopies" class="form-label">Số bản in:</label>
+                <input type="number" class="form-control" id="printCopies" value="1" min="1" max="10">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Chất lượng:</label>
+                <select class="form-control" id="printQuality">
+                    <option value="standard">Tiêu chuẩn</option>
+                    <option value="high">Chất lượng cao</option>
+                    <option value="draft">Nháp</option>
+                </select>
+            </div>
+
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="printDuplex" checked>
+                <label class="form-check-label" for="printDuplex">In hai mặt (nếu máy hỗ trợ)</label>
+            </div>
+
+            <div class="print-actions">
+                <button type="button" class="btn btn-secondary" id="cancelPrintBtn">Hủy</button>
+                <button type="button" class="btn btn-primary" id="confirmPrintBtn">In ngay</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container-fluid">
         <div class="form-container">
             <h2 class="text-center mb-4 form-title">HỢP ĐỒNG CẦM CỐ TÀI SẢN</h2>
+
+            <!-- Printer Selection Section -->
+            <div class="printer-section">
+                <div class="printer-section-title">THIẾT LẬP MÁY IN</div>
+                
+                <div class="row mb-3">
+                    <label class="col-sm-3 col-form-label fw-bold">Chọn máy in:</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" id="printerSelect">
+                            <option value="">-- Chọn máy in --</option>
+                            <option value="default">Máy in mặc định hệ thống</option>
+                            <option value="pdf">Lưu thành file PDF</option>
+                            <!-- Danh sách máy in sẽ được tải qua JavaScript -->
+                        </select>
+                        <div class="printer-info">
+                            Máy in mặc định: <span id="defaultPrinterInfo">Đang tải...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="print-options">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="printAction" id="printDirect" value="direct" checked>
+                        <label class="form-check-label option-label" for="printDirect">
+                            In trực tiếp
+                        </label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="printAction" id="printPreview" value="preview">
+                        <label class="form-check-label option-label" for="printPreview">
+                            Xem trước rồi in
+                        </label>
+                    </div>
+                </div>
+            </div>
 
             <form id="contractForm">
                 <div class="row mb-3">
@@ -198,18 +336,6 @@
                             <div class="col-sm-8">
                                 <input type="date" class="form-control" name="ky_2" id="ky_2">
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Checkbox và nút xem trước -->
-                <div class="row mb-3">
-                    <div class="col-sm-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="previewCheck">
-                            <label class="form-check-label fw-bold" for="previewCheck">
-                                Xem trước trước khi in
-                            </label>
                         </div>
                     </div>
                 </div>
