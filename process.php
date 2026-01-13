@@ -119,25 +119,78 @@ try {
     
     // Tạo tên file mới
     $timestamp = date('YmdHis');
-    $filename = 'HopDong_' . preg_replace('/[^a-zA-Z0-9]/', '', $ho_ten) . '_' . $timestamp . '.docx';
-    $outputPath = $dataDir . '/' . $filename;
+    $filename = 'HopDong_' . preg_replace('/[^a-zA-Z0-9]/', '', $ho_ten) . '_' . $timestamp;
     
-    // Lưu file
-    $templateProcessor->saveAs($outputPath);
-    
-    // Kiểm tra file đã được tạo
-    if (!file_exists($outputPath)) {
-        throw new Exception('Không thể tạo file hợp đồng. Vui lòng kiểm tra quyền ghi trên server');
+    // Nếu preview = 0 (không xem trước), tạo PDF để in
+    if ($preview == '0') {
+        // Tạo file DOCX tạm
+        $tempDocxPath = $dataDir . '/' . $filename . '_temp.docx';
+        $templateProcessor->saveAs($tempDocxPath);
+        
+        // Chuyển đổi sang PDF
+        $pdfFilename = $filename . '.pdf';
+        $pdfPath = $dataDir . '/' . $pdfFilename;
+        
+        // Sử dụng PhpWord để convert sang PDF (cần cài đặt thêm: composer require dompdf/dompdf)
+        try {
+            $phpWord = \PhpOffice\PhpWord\IOFactory::load($tempDocxPath);
+            $pdfWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'PDF');
+            $pdfWriter->save($pdfPath);
+            
+            // Xóa file DOCX tạm
+            if (file_exists($tempDocxPath)) {
+                unlink($tempDocxPath);
+            }
+            
+            // Trả về thông tin file PDF
+            echo json_encode([
+                'success' => true,
+                'message' => 'Tạo hợp đồng thành công',
+                'filename' => $pdfFilename,
+                'file_url' => 'data/' . $pdfFilename,
+                'timestamp' => $timestamp,
+                'type' => 'pdf',
+                'action' => 'print'
+            ], JSON_UNESCAPED_UNICODE);
+            
+        } catch (Exception $e) {
+            // Nếu không thể convert sang PDF, vẫn trả về DOCX
+            if (file_exists($tempDocxPath)) {
+                rename($tempDocxPath, $dataDir . '/' . $filename . '.docx');
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Không thể tạo PDF, đã tạo file DOCX',
+                'filename' => $filename . '.docx',
+                'file_url' => 'data/' . $filename . '.docx',
+                'timestamp' => $timestamp,
+                'type' => 'docx',
+                'action' => 'download',
+                'warning' => 'Không hỗ trợ chuyển đổi PDF. Cài đặt: composer require dompdf/dompdf'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+        
+    } else {
+        // Preview = 1, tạo file DOCX để tải về
+        $docxFilename = $filename . '.docx';
+        $outputPath = $dataDir . '/' . $docxFilename;
+        $templateProcessor->saveAs($outputPath);
+        
+        if (!file_exists($outputPath)) {
+            throw new Exception('Không thể tạo file hợp đồng. Vui lòng kiểm tra quyền ghi trên server');
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Tạo hợp đồng thành công',
+            'filename' => $docxFilename,
+            'file_url' => 'data/' . $docxFilename,
+            'timestamp' => $timestamp,
+            'type' => 'docx',
+            'action' => 'download'
+        ], JSON_UNESCAPED_UNICODE);
     }
-    
-    // Trả về kết quả
-    echo json_encode([
-        'success' => true,
-        'message' => 'Tạo hợp đồng thành công',
-        'filename' => $filename,
-        'file_url' => 'data/' . $filename,
-        'timestamp' => $timestamp
-    ], JSON_UNESCAPED_UNICODE);
     
 } catch (Exception $e) {
     http_response_code(500);

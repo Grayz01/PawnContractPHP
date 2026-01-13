@@ -78,6 +78,23 @@ document.getElementById('so_tien').addEventListener('input', function(e) {
     }
 });
 
+// Hàm mở file để in (tự động)
+function openFileForPrint(fileUrl, filename) {
+    // Tạo link tải file
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Hiển thị hướng dẫn cho người dùng
+    setTimeout(() => {
+        alert('File đã được tải về!\n\nVui lòng:\n1. Mở file vừa tải\n2. Nhấn Ctrl+P (hoặc Cmd+P trên Mac) để in');
+    }, 500);
+}
+
 // Xử lý nút in hợp đồng
 document.getElementById('printBtn').addEventListener('click', function(e) {
     e.preventDefault();
@@ -101,10 +118,9 @@ document.getElementById('printBtn').addEventListener('click', function(e) {
     const btnPrint = document.getElementById('printBtn');
     const originalText = btnPrint.textContent;
     btnPrint.disabled = true;
-    btnPrint.textContent = 'Đang xử lý...';
+    btnPrint.textContent = previewCheck ? 'Đang tạo file...' : 'Đang tạo file để in...';
     
     // Gửi dữ liệu đến server
-    // Debug: Hiển thị URL
     const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
     const processUrl = baseUrl + 'process.php';
     console.log('Sending request to:', processUrl);
@@ -114,10 +130,8 @@ document.getElementById('printBtn').addEventListener('click', function(e) {
         body: formData
     })
     .then(response => {
-        // Kiểm tra content-type
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-            // Nếu không phải JSON, đọc text để debug
             return response.text().then(text => {
                 console.error('Response không phải JSON:', text);
                 throw new Error('Server trả về HTML thay vì JSON. Kiểm tra file process.php có lỗi.');
@@ -127,22 +141,20 @@ document.getElementById('printBtn').addEventListener('click', function(e) {
     })
     .then(data => {
         if (data.success) {
-            if (previewCheck) {
-                // Mở file preview trong tab mới
-                window.open(data.file_url, '_blank');
-                alert('File hợp đồng đã được tạo và mở để xem trước!');
+            if (data.action === 'print') {
+                // Tải file và hướng dẫn in
+                openFileForPrint(data.file_url, data.filename);
             } else {
-                // Tự động tải file
+                // Tải file về bình thường
                 const link = document.createElement('a');
                 link.href = data.file_url;
                 link.download = data.filename;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                alert('File hợp đồng đã được tạo và tải xuống!');
+                alert('File hợp đồng đã được tải về!');
             }
         } else {
-            // Hiển thị lỗi chi tiết
             let errorMsg = 'Lỗi: ' + data.message;
             if (data.file && data.line) {
                 errorMsg += '\nFile: ' + data.file + ' (Line: ' + data.line + ')';
@@ -156,7 +168,6 @@ document.getElementById('printBtn').addEventListener('click', function(e) {
         alert('Có lỗi xảy ra khi tạo hợp đồng: ' + error.message);
     })
     .finally(() => {
-        // Khôi phục trạng thái button
         btnPrint.disabled = false;
         btnPrint.textContent = originalText;
     });
