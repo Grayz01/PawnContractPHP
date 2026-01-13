@@ -1,0 +1,9 @@
+extension:
+1. Composer (download internet)
+2. libreoffice
+
+
+Luu y:
+- Nếu cài chạy file .dmg xampp bị lỗi, dùng lệnh
+    xattr -d com.apple.quarantine /đường dẫn tới file .dmg
+- bỏ comment extension=zip trong ini.php để kích hoạt phpzip 
