@@ -123,23 +123,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return result.trim() + ' đồng';
     }
     
-    // Hàm hiển thị modal in
-    function showPrintModal(printFunction) {
-        const modal = document.getElementById('printModal');
-        modal.style.display = 'block';
-        
-        // Lưu hàm in
-        modal.dataset.printFunction = printFunction;
-    }
-    
-    // Hàm ẩn modal in
-    function hidePrintModal() {
-        const modal = document.getElementById('printModal');
-        modal.style.display = 'none';
-    }
-    
-    // Hàm in file PDF
-    function printPDF(pdfUrl, options = {}) {
+    // Hàm in file PDF trực tiếp
+    function printPDF(pdfUrl) {
         return new Promise((resolve, reject) => {
             try {
                 // Tạo iframe ẩn để in PDF
@@ -186,31 +171,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Hàm lấy danh sách máy in (mô phỏng - trong thực tế cần ActiveX hoặc WebUSB)
-    function loadPrinters() {
-        const printerSelect = document.getElementById('printerSelect');
-        
-        try {
-            // Trên trình duyệt hiện đại, JavaScript không thể truy cập trực tiếp vào máy in
-            // Chỉ có thể in thông qua hộp thoại in mặc định của trình duyệt
-            
-            // Thêm tùy chọn in mặc định
-            printerSelect.innerHTML = `
-                <option value="">-- Chọn máy in --</option>
-                <option value="default">Máy in mặc định hệ thống</option>
-                <option value="pdf">Lưu thành file PDF</option>
-                <option value="dialog">Hiển thị hộp thoại in</option>
-            `;
-            
-            // Cập nhật thông tin máy in mặc định
-            document.getElementById('defaultPrinterInfo').textContent = 'Sử dụng hộp thoại in của trình duyệt';
-            
-        } catch (error) {
-            console.error('Không thể tải danh sách máy in:', error);
-            document.getElementById('defaultPrinterInfo').textContent = 'Không thể phát hiện máy in';
-        }
-    }
-    
     // Xử lý thay đổi số tiền
     document.getElementById('so_tien').addEventListener('input', function() {
         const soTien = parseInt(this.value.replace(/\D/g, '')) || 0;
@@ -235,29 +195,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('gio').value = now.getHours().toString().padStart(2, '0');
     document.getElementById('phut').value = now.getMinutes().toString().padStart(2, '0');
     
-    // Tải danh sách máy in khi trang được tải
-    loadPrinters();
-    
-    // Xử lý nút hủy in modal
-    document.getElementById('cancelPrintBtn').addEventListener('click', hidePrintModal);
-    
-    // Xử lý nút xác nhận in modal
-    document.getElementById('confirmPrintBtn').addEventListener('click', function() {
-        hidePrintModal();
-        
-        // Lấy tùy chọn in
-        const copies = parseInt(document.getElementById('printCopies').value) || 1;
-        const quality = document.getElementById('printQuality').value;
-        const duplex = document.getElementById('printDuplex').checked;
-        
-        // Gọi hàm in đã lưu
-        const printFunction = document.getElementById('printModal').dataset.printFunction;
-        if (printFunction && window[printFunction]) {
-            window[printFunction](copies, quality, duplex);
-        }
-    });
-    
-    // Xử lý nút in hợp đồng
+    // Xử lý nút in hợp đồng - LUÔN IN TRỰC TIẾP
     document.getElementById('printBtn').addEventListener('click', function() {
         // Validate form
         const requiredFields = [
@@ -290,18 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Kiểm tra lựa chọn máy in
-        const printerSelect = document.getElementById('printerSelect');
-        const selectedPrinter = printerSelect.value;
-        const printAction = document.querySelector('input[name="printAction"]:checked').value;
-        
-        if (!selectedPrinter) {
-            alert('Vui lòng chọn máy in hoặc tùy chọn in!');
-            printerSelect.focus();
-            return;
-        }
-        
-        // Xác định hành động in
+        // LUÔN SỬ DỤNG MÁY IN MẶC ĐỊNH VÀ IN TRỰC TIẾP
         const printProcess = function() {
             // Hiển thị loading
             showLoading();
@@ -327,9 +254,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
-            // Thêm preview option dựa trên lựa chọn
-            const preview = (printAction === 'preview' || selectedPrinter === 'dialog') ? '1' : '0';
-            formData.append('preview', preview);
+            // LUÔN đặt preview = 0 để in trực tiếp
+            formData.append('preview', '0');
             
             // Gửi request đến server
             fetch('process.php', {
@@ -346,31 +272,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 hideLoading();
                 
                 if (data.success) {
-                    // Xử lý theo lựa chọn máy in
-                    if (selectedPrinter === 'pdf' || selectedPrinter === 'dialog') {
-                        // Mở file PDF để xem hoặc lưu
-                        const pdfUrl = data.file_url_pdf || data.file_url;
-                        if (pdfUrl) {
-                            window.open(pdfUrl, '_blank');
-                            showMessage('✅ Tạo hợp đồng thành công! Đang mở file PDF...', 'success');
-                        }
-                    } else if (selectedPrinter === 'default') {
-                        // In trực tiếp
-                        const pdfUrl = data.file_url_pdf || data.file_url;
-                        if (pdfUrl) {
-                            if (printAction === 'preview') {
-                                // Xem trước rồi in
+                    // LUÔN in trực tiếp với máy in mặc định
+                    const pdfUrl = data.file_url_pdf || data.file_url;
+                    if (pdfUrl) {
+                        printPDF(pdfUrl)
+                            .then(() => {
+                                showMessage('✅ Hợp đồng đã được gửi đến máy in mặc định!', 'success');
+                            })
+                            .catch(error => {
+                                console.error('Print error:', error);
+                                // Nếu không in được, mở file PDF để in thủ công
                                 window.open(pdfUrl, '_blank');
-                                showMessage('✅ Tạo hợp đồng thành công! Đang mở file xem trước...', 'success');
-                            } else {
-                                // In trực tiếp
-                                showPrintModal('startPrinting');
-                                
-                                // Lưu URL PDF để in
-                                window.currentPdfUrl = pdfUrl;
-                                showMessage('✅ Tạo hợp đồng thành công! Sẵn sàng in...', 'success');
-                            }
-                        }
+                                showMessage('✅ Đã mở file PDF. Vui lòng in thủ công từ trình duyệt.', 'success');
+                            });
                     }
                 } else {
                     showMessage('❌ Lỗi: ' + data.message, 'error');
@@ -384,41 +298,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         };
         
-        // Hàm bắt đầu in
-        window.startPrinting = function(copies, quality, duplex) {
-            if (window.currentPdfUrl) {
-                // In file PDF
-                printPDF(window.currentPdfUrl, {
-                    copies: copies,
-                    quality: quality,
-                    duplex: duplex
-                })
-                .then(() => {
-                    showMessage('✅ Đã gửi lệnh in thành công!', 'success');
-                })
-                .catch(error => {
-                    showMessage('❌ Lỗi khi in: ' + error.message, 'error');
-                    console.error('Print error:', error);
-                    
-                    // Nếu không in được, mở file PDF để in thủ công
-                    window.open(window.currentPdfUrl, '_blank');
-                });
-            }
-        };
-        
-        // Hiển thị modal in nếu chọn in trực tiếp
-        if (selectedPrinter === 'default' && printAction === 'direct') {
-            showPrintModal('startPrinting');
-            
-            // Lưu hàm xử lý in
-            document.getElementById('printModal').dataset.printFunction = 'printProcess';
-            
-            // Gán lại hàm in để có thể gọi từ modal
-            window.printProcess = printProcess;
-        } else {
-            // Thực hiện ngay
-            printProcess();
-        }
+        // Thực hiện in trực tiếp
+        printProcess();
     });
     
     // Thêm style cho invalid fields
